@@ -644,6 +644,19 @@ document.addEventListener("click", (event) => {
   installSkill(name, button);
 });
 
+const chatLink = $("chatLink");
+if (chatLink) {
+  chatLink.addEventListener("click", async (event) => {
+    event.preventDefault();
+    setActionFeedback("正在启动聊天服务...");
+    try {
+      await fetch("/api/dashboard/start", { method: "POST" });
+    } catch {
+      // ignore start errors
+    }
+  });
+}
+
 setLoading(true, "初始化状态采集中（可能需要 10-20s，请耐心等待）");
 setActionFeedback("等待操作...");
 for (const btn of document.querySelectorAll(".btn")) {
@@ -651,5 +664,5 @@ for (const btn of document.querySelectorAll(".btn")) {
   if (label && !btn.dataset.defaultLabel) btn.dataset.defaultLabel = label.textContent || "";
 }
 Promise.all([loadSkills(), loadOverview()]).finally(() => {
-  setInterval(loadOverview, 15000);
+  // Auto-refresh removed to avoid constant reconnect noise.
 });
