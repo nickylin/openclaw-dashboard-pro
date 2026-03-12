@@ -51,18 +51,8 @@ async function runOpenClaw(args, timeout = 45000) {
   }
 }
 
-function runOpenClawWithCap(args, timeout = 45000, capMs = 20000) {
-  const timeoutResult = {
-    ok: false,
-    args,
-    stdout: "",
-    stderr: `timeout after ${capMs}ms`,
-    code: "TIMEOUT"
-  };
-  return Promise.race([
-    runOpenClaw(args, timeout),
-    new Promise((resolve) => setTimeout(() => resolve(timeoutResult), capMs))
-  ]);
+function runOpenClawNoCap(args, timeout = 0) {
+  return runOpenClaw(args, timeout);
 }
 
 function pickJson(text) {
@@ -224,7 +214,7 @@ async function getOverview() {
   ];
 
   const results = await Promise.allSettled(
-    tasks.map(([, args]) => runOpenClawWithCap(args, 45000, 8000))
+    tasks.map(([, args]) => runOpenClawNoCap(args, 0))
   );
 
   const byKey = {};
