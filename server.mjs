@@ -80,6 +80,15 @@ function formatAgeMs(ms) {
   return `${Math.floor(hour / 24)}d`;
 }
 
+function normalizeSessionModel(session) {
+  if (!session) return null;
+  const raw = session.modelOverride || session.model || "";
+  if (!raw) return null;
+  if (raw.includes("/")) return raw;
+  const provider = session.providerOverride || session.modelProvider || "";
+  return provider ? `${provider}/${raw}` : raw;
+}
+
 function cmdOutputText(result) {
   return `${result.stdout || ""}${result.stderr ? `\n${result.stderr}` : ""}`.trim();
 }
@@ -252,9 +261,11 @@ async function getOverview() {
   const totalInputTokens = sessions.reduce((sum, s) => sum + safeNumber(s.inputTokens), 0);
   const totalOutputTokens = sessions.reduce((sum, s) => sum + safeNumber(s.outputTokens), 0);
 
-  const recentSessions = sessions
+  const sortedSessions = sessions
     .filter((s) => s.key && s.key !== "sessions")
-    .sort((a, b) => safeNumber(b.updatedAt) - safeNumber(a.updatedAt))
+    .sort((a, b) => safeNumber(b.updatedAt) - safeNumber(a.updatedAt));
+
+  const recentSessions = sortedSessions
     .slice(0, 10)
     .map((s) => ({
       key: s.key,
@@ -286,6 +297,11 @@ async function getOverview() {
   const versionText = cmdOutputText(versionRaw);
   const commandAvailable = versionRaw.ok || gatewayRaw.ok || modelsRaw.ok || sessionsRaw.ok || channelsRaw.ok;
   const openclawInstalled = commandAvailable;
+  const defaultModel = modelsJson.resolvedDefault || modelsJson.defaultModel || "unknown";
+  const latestSession = sortedSessions[0];
+  const sessionModel = normalizeSessionModel(latestSession);
+  const currentModel = sessionModel || defaultModel;
+  const currentModelSource = sessionModel ? "session" : "default";
 
   const errors = {
     version: versionRaw.ok ? null : cmdOutputText(versionRaw) || "version failed",
@@ -305,7 +321,9 @@ async function getOverview() {
     openclawInstalled,
     openclawVersion: versionText || "unknown",
     gatewayUp,
-    currentModel: modelsJson.defaultModel || "unknown",
+    currentModel,
+    currentModelSource,
+    defaultModel,
     allowedModels: Array.isArray(modelsJson.allowed) ? modelsJson.allowed : [],
     sessionsCount: safeNumber(sessionsJson.count),
     successRate,
@@ -335,11 +353,36 @@ async function setModel(model) {
   const setResult = await runOpenClaw(["models", "set", trimmed]);
   const statusResult = await runOpenClaw(["models", "status", "--json"]);
   const statusJson = pickJson(cmdOutputText(statusResult)) || {};
+  const defaultModel = statusJson.resolvedDefault || statusJson.defaultModel || "unknown";
   return {
     ok: setResult.ok,
     applied: trimmed,
-    currentModel: statusJson.defaultModel || "unknown",
+    currentModel: defaultModel,
     raw: cmdOutputText(setResult)
+  };
+}
+
+async function getModelStatus() {
+  const [statusResult, sessionsResult] = await Promise.all([
+    runOpenClaw(["models", "status", "--json"]),
+    runOpenClaw(["sessions", "--json"])
+  ]);
+  const statusJson = pickJson(cmdOutputText(statusResult)) || {};
+  const sessionsJson = pickJson(cmdOutputText(sessionsResult)) || { sessions: [] };
+  const sessions = Array.isArray(sessionsJson.sessions) ? sessionsJson.sessions : [];
+  const latest = sessions
+    .filter((s) => s && s.updatedAt)
+    .sort((a, b) => safeNumber(b.updatedAt) - safeNumber(a.updatedAt))[0];
+  const sessionModel = normalizeSessionModel(latest);
+  const defaultModel = statusJson.resolvedDefault || statusJson.defaultModel || "unknown";
+  const currentModel = sessionModel || defaultModel;
+  return {
+    ok: statusResult.ok || Boolean(currentModel && currentModel !== "unknown"),
+    currentModel,
+    currentModelSource: sessionModel ? "session" : "default",
+    defaultModel,
+    allowedModels: Array.isArray(statusJson.allowed) ? statusJson.allowed : [],
+    error: statusResult.ok ? null : "models status failed"
   };
 }
 
@@ -377,7 +420,7 @@ async function addModelConfig(payload) {
   return {
     ok: allOk,
     model,
-    currentModel: statusJson.defaultModel || "unknown",
+    currentModel: statusJson.resolvedDefault || statusJson.defaultModel || "unknown",
     raw: logs.join("\\n\\n").trim()
   };
 }
@@ -464,7 +507,7 @@ async function addOpenAIChatModel(payload) {
   return {
     ok: allOk,
     model: fullModel,
-    currentModel: String(statusAfterJson.defaultModel || "unknown"),
+    currentModel: String(statusAfterJson.resolvedDefault || statusAfterJson.defaultModel || "unknown"),
     raw: logs.join("\n\n")
   };
 }
@@ -473,7 +516,7 @@ async function testModelConnectivity(payload) {
   const targetModel = String(payload?.model || "").trim();
   const statusBefore = await runOpenClaw(["models", "status", "--json"]);
   const statusBeforeJson = pickJson(cmdOutputText(statusBefore)) || {};
-  const previousModel = String(statusBeforeJson.defaultModel || "").trim();
+  const previousModel = String(statusBeforeJson.resolvedDefault || statusBeforeJson.defaultModel || "").trim();
 
   let changedModel = false;
   const logs = [];
@@ -493,7 +536,7 @@ async function testModelConnectivity(payload) {
 
   const statusNow = await runOpenClaw(["models", "status", "--json"], 30000);
   const statusNowJson = pickJson(cmdOutputText(statusNow)) || {};
-  const appliedModel = String(statusNowJson.defaultModel || "");
+  const appliedModel = String(statusNowJson.resolvedDefault || statusNowJson.defaultModel || "");
   const health = await runOpenClaw(["gateway", "health"], 20000);
   const healthText = cmdOutputText(health);
   logs.push(`[model-status] ${statusNow.ok ? "ok" : "fail"}\n${cmdOutputText(statusNow)}`);
@@ -704,6 +747,12 @@ async function handleApi(req, res) {
     } catch {
       sendJson(res, 400, { ok: false, error: "invalid json" });
     }
+    return true;
+  }
+
+  if (req.method === "GET" && req.url === "/api/model/status") {
+    const result = await getModelStatus();
+    sendJson(res, result.ok ? 200 : 400, result);
     return true;
   }
 

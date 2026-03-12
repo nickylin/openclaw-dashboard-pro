@@ -99,13 +99,13 @@ function resetAllButtonLoadingStates() {
 function installReady(data) {
   return data.openclawInstalled === true
     || data.gatewayUp === true
-    || (data.currentModel && data.currentModel !== "unknown")
+    || (data.defaultModel && data.defaultModel !== "unknown")
     || Number(data.sessionsCount || 0) > 0;
 }
 
 function stages(data) {
   const installed = installReady(data);
-  const configured = installed && data.currentModel && data.currentModel !== "unknown";
+  const configured = installed && data.defaultModel && data.defaultModel !== "unknown";
   const manageable = installed && data.gatewayUp === true;
   const optimized = manageable && ((data.fallbacks || []).length > 0 || Number(data.sessionsCount || 0) > 0);
   return [
@@ -183,7 +183,7 @@ function renderConfig(data) {
     [installReady(data), "CLI 已可用"],
     [data.gatewayUp === true, "网关已启动"],
     [Array.isArray(data.allowedModels) && data.allowedModels.length > 0, "模型列表已加载"],
-    [data.currentModel && data.currentModel !== "unknown", "默认模型已设置"]
+    [data.defaultModel && data.defaultModel !== "unknown", "默认模型已设置"]
   ];
   $("configChecklist").innerHTML = checks
     .map(([ok, text]) => `<li class="${ok ? "ok" : "fail"}">${ok ? "已完成" : "待完成"} · ${text}</li>`)
@@ -192,7 +192,7 @@ function renderConfig(data) {
   const models = data.allowedModels || [];
   const select = $("modelSelect");
   select.innerHTML = models.length ? models.map((m) => `<option value="${m}">${m}</option>`).join("") : `<option value="">暂无可用模型</option>`;
-  if (data.currentModel && models.includes(data.currentModel)) select.value = data.currentModel;
+  if (data.defaultModel && models.includes(data.defaultModel)) select.value = data.defaultModel;
 
   $("aliasList").innerHTML = (data.aliases?.length ? data.aliases : ["暂无 alias"]).map((x) => `<li>${x}</li>`).join("");
   $("fallbackList").innerHTML = (data.fallbacks?.length ? data.fallbacks : ["暂无 fallback"]).map((x) => `<li>${x}</li>`).join("");
@@ -429,6 +429,28 @@ async function addModelConfig() {
   }
 }
 
+async function refreshModelStatus() {
+  const endLoading = beginBtnLoading($("refreshModelBtn"), "刷新中...");
+  try {
+    const res = await fetch("/api/model/status", { cache: "no-store" });
+    const data = await res.json();
+    if (!data.ok) {
+      setLog(data.error || "模型状态刷新失败");
+      $("modelResult").textContent = "刷新失败";
+      return;
+    }
+    const models = data.allowedModels || [];
+    const select = $("modelSelect");
+    select.innerHTML = models.length ? models.map((m) => `<option value="${m}">${m}</option>`).join("") : `<option value="">暂无可用模型</option>`;
+    if (data.defaultModel && models.includes(data.defaultModel)) select.value = data.defaultModel;
+    const sourceLabel = data.currentModelSource === "session" ? "会话" : "默认";
+    $("modelResult").textContent = `已刷新：当前 ${data.currentModel || "unknown"}（${sourceLabel}）`;
+    setLog("模型状态已刷新");
+  } finally {
+    endLoading();
+  }
+}
+
 async function callGateway(action) {
   if (action === "stop") {
     const now = Date.now();
@@ -615,6 +637,7 @@ $("runInstallBtn").addEventListener("click", runInstall);
 $("copyInstallBtn").addEventListener("click", copyInstallCommand);
 $("applyModelBtn").addEventListener("click", applyModel);
 $("testModelBtn").addEventListener("click", testModelConnectivity);
+$("refreshModelBtn").addEventListener("click", refreshModelStatus);
 $("addModelBtn").addEventListener("click", addModelConfig);
 $("newSessionBtn").addEventListener("click", createNewSession);
 $("cleanupBtn").addEventListener("click", cleanupSessions);
