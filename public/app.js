@@ -642,7 +642,7 @@ document.addEventListener("click", (event) => {
   installSkill(name, button);
 });
 
-setLoading(true, "初始化状态采集中...");
+setLoading(true, "初始化状态采集中（可能需要 10-20s，请耐心等待）");
 setActionFeedback("等待操作...");
 for (const btn of document.querySelectorAll(".btn")) {
   const label = btn.querySelector("span");

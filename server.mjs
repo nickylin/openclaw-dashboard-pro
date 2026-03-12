@@ -51,7 +51,7 @@ async function runOpenClaw(args, timeout = 45000) {
   }
 }
 
-function runOpenClawWithCap(args, timeout = 45000, capMs = 8000) {
+function runOpenClawWithCap(args, timeout = 45000, capMs = 20000) {
   const timeoutResult = {
     ok: false,
     args,
