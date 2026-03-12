@@ -147,6 +147,19 @@ function startInstallTask() {
   return { ok: true, install: getInstallStatus() };
 }
 
+function startDashboard() {
+  try {
+    const child = spawn("openclaw", ["dashboard"], {
+      stdio: "ignore",
+      detached: true
+    });
+    child.unref();
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+}
+
 async function listRecommendedSkills() {
   const result = await execFileAsync("python3", [SKILL_LIST_SCRIPT, "--format", "json"], {
     timeout: 45000,
@@ -279,7 +292,7 @@ async function getOverview() {
     .map((line) => line.replace(/^-\\s*/, ""));
 
   const gatewayText = cmdOutputText(gatewayRaw);
-  const gatewayUp = gatewayRaw.ok && gatewayText.includes("Runtime: running") && gatewayText.includes("RPC probe: ok");
+  const gatewayUp = gatewayText.includes("Runtime: running") && gatewayText.includes("RPC probe: ok");
   const versionText = cmdOutputText(versionRaw);
   const commandAvailable = versionRaw.ok || gatewayRaw.ok || modelsRaw.ok || sessionsRaw.ok || channelsRaw.ok;
   const openclawInstalled = commandAvailable;
@@ -773,6 +786,12 @@ async function handleApi(req, res) {
 
   if (req.method === "POST" && req.url === "/api/sessions/cleanup") {
     const result = await cleanupSessions();
+    sendJson(res, result.ok ? 200 : 400, result);
+    return true;
+  }
+
+  if (req.method === "POST" && req.url === "/api/dashboard/start") {
+    const result = startDashboard();
     sendJson(res, result.ok ? 200 : 400, result);
     return true;
   }
