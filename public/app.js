@@ -301,6 +301,8 @@ function renderAll(data, install) {
 }
 
 async function loadOverview() {
+  setLoading(true, "正在重新连接你的 OpenClaw（可能需要 10-20s，请耐心等待）");
+  setActionFeedback("正在重新连接...");
   try {
     const [overviewRes, installRes] = await Promise.all([
       fetch("/api/overview", { cache: "no-store" }),
