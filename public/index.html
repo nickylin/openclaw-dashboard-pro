@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenClaw Lobster Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="loadingOverlay" class="loading-overlay" aria-live="polite">
+    <div class="loading-card">
+      <i class="ri-loader-4-line spinner" aria-hidden="true"></i>
+      <h2>正在连接你的 OpenClaw</h2>
+      <p id="loadingText">初始化状态采集中...</p>
+    </div>
+  </div>
+
+  <main class="app">
+    <header class="hero">
+      <div>
+        <p class="kicker">OPENCLAW LOBSTER CONSOLE 🦞</p>
+        <h1>龙虾助手：简单、可控、低门槛。</h1>
+        <p id="nextAction" class="subtitle">正在分析下一步动作...</p>
+        <p class="tagline">安装-&gt;配置-&gt;管理-&gt;技能，再也不用担心。</p>
+      </div>
+      <div class="top-actions">
+        <a class="btn btn-ghost" href="http://127.0.0.1:18789/" target="_blank" rel="noreferrer"><i class="ri-chat-3-line"></i><span>聊天页</span></a>
+        <button id="refreshBtn" class="btn btn-primary" type="button"><i class="ri-refresh-line"></i><span>刷新</span></button>
+        <p id="timeLabel" class="time-label">--</p>
+      </div>
+    </header>
+
+    <section class="panel top-gateway">
+      <div class="gateway-head">
+        <h2>网关高频操作</h2>
+        <p id="gatewayBadge" class="badge">状态检测中</p>
+      </div>
+      <div class="gateway-actions">
+        <div class="action-group">
+          <p class="kicker">运行控制</p>
+          <div class="button-row">
+            <button data-gateway="start" class="btn btn-success" type="button"><i class="ri-play-circle-line"></i><span>启动</span></button>
+            <button data-gateway="restart" class="btn btn-warn" type="button"><i class="ri-restart-line"></i><span>重启</span></button>
+            <button data-gateway="stop" class="btn btn-danger" type="button"><i class="ri-stop-circle-line"></i><span>停止</span></button>
+          </div>
+        </div>
+        <div class="action-group">
+          <p class="kicker">维护检查</p>
+          <div class="button-row">
+            <button data-gateway="status" class="btn btn-info" type="button"><i class="ri-pulse-line"></i><span>网关状态</span></button>
+            <button id="checkUpdateBtn" class="btn btn-primary" type="button"><i class="ri-download-cloud-line"></i><span>版本检查</span></button>
+          </div>
+        </div>
+      </div>
+      <p id="actionFeedback" class="hint">等待操作...</p>
+    </section>
+
+    <section class="panel workflow-strip">
+      <ol id="workflowDots" class="flow-line">
+        <li class="flow-node" data-tab="install"><span class="dot"></span><span class="label">安装</span></li>
+        <li class="flow-node" data-tab="configure"><span class="dot"></span><span class="label">配置</span></li>
+        <li class="flow-node" data-tab="manage"><span class="dot"></span><span class="label">管理</span></li>
+        <li class="flow-node" data-tab="optimize"><span class="dot"></span><span class="label">优化</span></li>
+      </ol>
+    </section>
+
+    <section class="metrics" id="metrics"></section>
+
+    <nav class="tabs" aria-label="内容切换">
+      <button class="tab is-active" data-tab="install" type="button">安装</button>
+      <button class="tab" data-tab="configure" type="button">配置</button>
+      <button class="tab" data-tab="manage" type="button">管理</button>
+      <button class="tab" data-tab="optimize" type="button">优化</button>
+    </nav>
+
+    <section id="panel-install" class="tab-panel is-active">
+      <article class="panel">
+        <h3>安装状态</h3>
+        <p id="installStatusText" class="status-line">检测中...</p>
+        <p id="installTaskText" class="hint">安装任务：未开始</p>
+      </article>
+      <article class="panel">
+        <h3>一键安装</h3>
+        <pre class="code" id="installCommand">curl -fsSL https://openclaw.ai/install.sh | bash</pre>
+        <div class="button-row">
+          <button id="runInstallBtn" class="btn btn-success" type="button"><i class="ri-download-cloud-2-line"></i><span>一键安装</span></button>
+          <button id="copyInstallBtn" class="btn btn-primary" type="button"><i class="ri-file-copy-line"></i><span>复制命令</span></button>
+          <button class="btn btn-ghost" data-jump="configure" type="button"><i class="ri-arrow-right-line"></i><span>去配置</span></button>
+        </div>
+        <pre id="installLog" class="log">暂无安装日志。</pre>
+      </article>
+      <article class="panel">
+        <h3>更新维护</h3>
+        <p id="updateQuickStatus" class="status-line">尚未检查更新</p>
+        <p id="updateQuickMeta" class="hint">点击“检查更新”获取版本信息。</p>
+        <div class="button-row">
+          <button id="checkUpdateInstallBtn" class="btn btn-info" type="button"><i class="ri-search-line"></i><span>检查更新</span></button>
+          <button id="runUpdateBtn" class="btn btn-warn" type="button"><i class="ri-upload-cloud-line"></i><span>一键更新</span></button>
+        </div>
+      </article>
+    </section>
+
+    <section id="panel-configure" class="tab-panel">
+      <article class="panel">
+        <h3>配置检查</h3>
+        <ol id="configChecklist" class="list"></ol>
+      </article>
+      <article class="panel">
+        <h3>模型切换与测试</h3>
+        <div class="model-row">
+          <select id="modelSelect"></select>
+          <input id="customModel" placeholder="或输入模型 ID" />
+          <button id="applyModelBtn" class="btn btn-primary" type="button"><i class="ri-sparkling-line"></i><span>应用</span></button>
+          <button id="testModelBtn" class="btn btn-info" type="button"><i class="ri-flask-line"></i><span>测试</span></button>
+        </div>
+        <p id="modelResult" class="hint"></p>
+      </article>
+      <article class="panel">
+        <h3>接入 OpenAI Chat</h3>
+        <div class="model-add-box">
+          <input id="openaiBaseUrl" placeholder="Base URL" />
+          <input id="openaiModelId" placeholder="Model" />
+          <input id="openaiApiKey" type="password" placeholder="API Key" />
+          <input id="openaiProviderKey" placeholder="Provider key（默认 openai-chat）" />
+          <input id="newModelAlias" placeholder="可选 alias" />
+          <label><input id="newModelSetDefault" type="checkbox" checked />设为默认</label>
+          <label><input id="newModelAddFallback" type="checkbox" checked />加入 fallback</label>
+          <button id="addModelBtn" class="btn btn-primary" type="button"><i class="ri-add-box-line"></i><span>保存</span></button>
+        </div>
+        <div class="split-lists">
+          <div><p class="kicker">ALIASES</p><ul id="aliasList" class="list compact"></ul></div>
+          <div><p class="kicker">FALLBACKS</p><ul id="fallbackList" class="list compact"></ul></div>
+        </div>
+      </article>
+    </section>
+
+    <section id="panel-manage" class="tab-panel">
+      <div class="dual-grid">
+        <article class="panel">
+          <h3>Session 快捷操作</h3>
+          <div class="session-form">
+            <input id="sessionTo" placeholder="--to 目标" />
+            <input id="sessionMessage" placeholder="首条消息" />
+            <button id="newSessionBtn" class="btn btn-primary" type="button"><i class="ri-add-circle-line"></i><span>新建 Session</span></button>
+            <button id="cleanupBtn" class="btn btn-ghost" type="button"><i class="ri-delete-bin-6-line"></i><span>清理 Session</span></button>
+          </div>
+        </article>
+        <article class="panel">
+          <h3>渠道状态</h3>
+          <ul id="channelsList" class="list"></ul>
+        </article>
+      </div>
+      <article class="panel">
+        <h3>近期 Session</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Session</th><th>模型</th><th>Tokens</th><th>占比</th><th>状态</th><th>活跃</th></tr></thead>
+            <tbody id="sessionsBody"></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <section id="panel-optimize" class="tab-panel">
+      <article class="panel"><h3>优化建议</h3><ul id="tipsList" class="list"></ul></article>
+      <article class="panel store-entry">
+        <div class="store-head">
+          <div>
+            <h3>技能商店入口</h3>
+            <p class="hint">在 ClawHub 探索社区技能，配合下方推荐快速上手。</p>
+          </div>
+          <a class="btn btn-info" href="https://clawhub.ai/" target="_blank" rel="noreferrer">
+            <i class="ri-store-2-line"></i><span>打开 ClawHub</span>
+          </a>
+        </div>
+        <div id="clawhubCards" class="store-cards"></div>
+      </article>
+      <article class="panel"><h3>技能推荐与安装</h3><div class="skill-cards" id="skillCards"></div></article>
+    </section>
+
+    <section class="panel">
+      <h3>命令执行输出</h3>
+      <pre id="commandLog" class="log">等待操作...</pre>
+    </section>
+  </main>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

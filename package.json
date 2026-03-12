@@ -1,0 +1,14 @@
+{
+  "name": "openclaw-dashboard-pro",
+  "version": "0.1.0",
+  "description": "Local dashboard for managing OpenClaw via browser.",
+  "private": false,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
